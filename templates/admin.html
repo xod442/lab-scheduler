@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin · Lab Scheduler</title>
+<style>
+  :root{--bg:#0b1419;--panel:#111f27;--panel2:#16272f;--border:rgba(255,255,255,0.08);
+    --text:#e6edf0;--text2:#8ea0a8;--accent:#2ad2c9;--green:#01a982;--amber:#ff8d6d;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;font-size:14px}
+  a{color:var(--accent);text-decoration:none}
+  .topbar{display:flex;align-items:center;gap:16px;padding:14px 28px;background:linear-gradient(180deg,#12242d,#0e1c23);border-bottom:1px solid var(--border)}
+  .topbar .brand{font-weight:800;font-size:17px}.topbar .brand span{color:var(--accent)}
+  .topbar .tag{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
+  .topbar .right{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:13px;color:var(--text2)}
+  .wrap{max-width:640px;margin:0 auto;padding:28px 24px}
+  h1{font-size:22px;font-weight:800;margin-bottom:20px}
+  .msg{background:rgba(42,210,201,0.1);border:1px solid rgba(42,210,201,0.3);color:var(--accent);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:20px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:20px}
+  .card h2{font-size:15px;font-weight:700;margin-bottom:6px}
+  .card p.hint{color:var(--text2);font-size:12.5px;margin-bottom:16px;line-height:1.5}
+  .status{display:flex;align-items:center;gap:10px;margin-bottom:16px;font-size:13px}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .live .dot{background:var(--green);box-shadow:0 0 0 4px rgba(1,169,130,0.18)}
+  .sim .dot{background:var(--amber);box-shadow:0 0 0 4px rgba(255,141,109,0.18)}
+  .pill{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px}
+  .pill.live{background:rgba(1,169,130,0.12);color:var(--green);border:1px solid rgba(1,169,130,0.3)}
+  .pill.sim{background:rgba(255,141,109,0.12);color:var(--amber);border:1px solid rgba(255,141,109,0.3)}
+  .keybox{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:ui-monospace,monospace;font-size:13px;color:var(--text2);margin-bottom:16px}
+  label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin-bottom:6px}
+  input{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;font-family:inherit;outline:none;margin-bottom:14px}
+  input:focus{border-color:var(--accent)}
+  button{background:var(--accent);color:#00211f;border:none;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:800;cursor:pointer}
+  .btn-sec{background:transparent;color:var(--text2);border:1px solid var(--border)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span>Lab</span> Scheduler</div>
+  <div class="tag">Admin Console</div>
+  <div class="right">
+    <span>{{ username }}</span>
+    <a href="{{ rp }}/" target="_blank">View site ↗</a>
+    <a href="{{ rp }}{{ admin_path }}/logout">Log out</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <h1>Admin</h1>
+  {% if msg %}<div class="msg">{{ msg }}</div>{% endif %}
+
+  <div class="card">
+    <h2>Scheduler API</h2>
+    <div class="status {{ 'live' if live else 'sim' }}">
+      <span class="dot"></span>
+      {% if live %}
+        <span>Connected — the schedule page pulls live data.</span>
+        <span class="pill live">LIVE</span>
+      {% else %}
+        <span>No API key — the schedule page shows simulated sample data.</span>
+        <span class="pill sim">SIMULATED</span>
+      {% endif %}
+    </div>
+    {% if key_set %}
+    <div class="keybox">Current key: {{ key_masked }}{% if from_env %} &nbsp;(from environment){% else %} &nbsp;(stored, encrypted){% endif %}</div>
+    {% endif %}
+
+    <p class="hint">Paste a new scheduler API key to rotate it. It's stored <strong>Fernet-encrypted</strong> in the database — never in plaintext. Leave blank and save to clear the stored key (falls back to the environment variable, then simulated data).</p>
+    <form method="post" action="{{ rp }}{{ admin_path }}/api-key">
+      <label for="api_key">X-API-KEY</label>
+      <input type="password" id="api_key" name="api_key" placeholder="Paste new key… (leave blank to clear)" autocomplete="off">
+      <div class="row">
+        <button type="submit">Save API key</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Security</h2>
+    <p class="hint">Change the admin password for this console.</p>
+    <a href="{{ rp }}{{ admin_path }}/password"><button type="button" class="btn-sec">Change password</button></a>
+  </div>
+</div>
+</body>
+</html>

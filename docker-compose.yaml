@@ -1,0 +1,18 @@
+services:
+  lab-portal:
+    build: .
+    ports:
+      - "8088:8000"
+    volumes:
+      - ./data:/data
+    environment:
+      SCHEDULER_API_URL: ${SCHEDULER_API_URL:-https://schedulerapi.edutl.hpe.com/v1/items}
+      SCHEDULER_API_KEY: ${SCHEDULER_API_KEY:-}
+      ADMIN_PATH: ${ADMIN_PATH:-admin}
+      SECRET_KEY: ${SECRET_KEY:-change-me-to-a-long-random-string}
+      LABPORTAL_FERNET_KEY: ${LABPORTAL_FERNET_KEY:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      DB_PATH: /data/labportal.db
+      FERNET_KEY_PATH: /data/secret.key
+      ROOT_PATH: ${ROOT_PATH:-}
+    restart: unless-stopped

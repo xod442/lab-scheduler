@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schedule a Lab — HPE Aruba Networking</title>
+<style>
+  :root{
+    --bg:#0b1419; --panel:#111f27; --panel2:#16272f; --border:rgba(255,255,255,0.08);
+    --text:#e6edf0; --text2:#8ea0a8; --accent:#2ad2c9; --green:#01a982; --amber:#ff8d6d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;font-size:14px;padding-bottom:96px}
+  a{color:var(--accent);text-decoration:none}
+
+  .topbar{display:flex;align-items:center;gap:16px;padding:14px 28px;background:linear-gradient(180deg,#12242d,#0e1c23);border-bottom:1px solid var(--border)}
+  .topbar .brand{font-weight:800;font-size:17px}
+  .topbar .brand span{color:var(--accent)}
+  .topbar a.back{color:var(--text2);font-size:13px}
+  .topbar a.back:hover{color:var(--text)}
+
+  .wrap{max-width:1200px;margin:0 auto;padding:26px 24px}
+  .hero{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+  h1{font-size:24px;font-weight:800;letter-spacing:-0.4px}
+  .sub{color:var(--text2);font-size:13px;margin-bottom:20px}
+  .simbadge{display:inline-block;background:rgba(255,141,109,0.12);border:1px solid rgba(255,141,109,0.35);color:var(--amber);font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px}
+
+  /* Calendar */
+  .cal-range{font-size:19px;font-weight:800;letter-spacing:-0.3px;margin:4px 0 14px;color:var(--text)}
+  .cal-head{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:8px}
+  .cal-head div{color:var(--text2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;text-align:center;padding:4px}
+  .cal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:8px}
+  .cal-day{background:var(--panel);border:1px solid var(--border);border-radius:10px;min-height:112px;padding:8px;display:flex;flex-direction:column;gap:6px}
+  .cal-day.weekend{background:rgba(17,31,39,0.5)}
+  .cal-day.past{opacity:0.45}
+  .cal-day.today{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .daynum{font-size:12px;font-weight:700;color:var(--text2);display:flex;justify-content:space-between}
+  .daynum .mo{color:var(--accent)}
+
+  .pill{
+    display:block;width:100%;text-align:left;border:1px solid var(--border);border-radius:8px;
+    background:var(--panel2);color:var(--text);padding:6px 8px;cursor:pointer;transition:.12s;font-family:inherit;
+    border-left:3px solid var(--green);
+  }
+  .pill:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .pill.sel{background:rgba(42,210,201,0.18);border-color:var(--accent);border-left-color:var(--accent)}
+  .pill.full{border-left-color:var(--amber);opacity:0.6;cursor:not-allowed}
+  .pill .code{font-weight:700;font-size:11px}
+  .pill .time{color:var(--text2);font-size:11px}
+  .pill .seats{font-size:10px;font-weight:700;color:var(--green)}
+  .pill.full .seats{color:var(--amber)}
+
+  /* Selection bar */
+  .bar{position:fixed;left:0;right:0;bottom:0;transform:translateY(120%);transition:transform .2s;
+    background:#0e1c23;border-top:1px solid var(--border);padding:14px 24px;
+    display:flex;align-items:center;gap:18px;box-shadow:0 -8px 30px rgba(0,0,0,0.4)}
+  .bar.show{transform:translateY(0)}
+  .bar .info{flex:1;min-width:0}
+  .bar .t{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar .m{color:var(--text2);font-size:12px;margin-top:2px}
+  .bar .go{background:var(--accent);color:#00211f;border:none;border-radius:9px;padding:11px 24px;font-weight:800;font-size:14px;cursor:pointer;white-space:nowrap}
+  .bar .go:hover{filter:brightness(1.08)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span>Lab</span> Scheduler</div>
+  <a class="back" href="{{ rp }}/">← Home</a>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <h1>Upcoming lab sessions</h1>
+    {% if not live %}<span class="simbadge">SIMULATED DATA</span>{% endif %}
+  </div>
+  {% if error %}
+  <div style="background:rgba(255,141,109,0.1);border:1px solid rgba(255,141,109,0.35);color:var(--amber);border-radius:10px;padding:14px 16px;font-size:14px;margin-bottom:20px;">
+    ⚠️ {{ error }}
+  </div>
+  {% else %}
+  <div class="sub">{{ session_count }} session{{ '' if session_count == 1 else 's' }} scheduled. Click a session to select it, then continue.</div>
+  <div class="cal-range">📅 {{ range_label }}</div>
+  {% endif %}
+
+  <div class="cal-head">
+    <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+  </div>
+
+  {% for week in weeks %}
+  <div class="cal-week">
+    {% for day in week %}
+    <div class="cal-day {% if day.is_weekend %}weekend{% endif %} {% if day.in_past %}past{% endif %} {% if day.is_today %}today{% endif %}">
+      <div class="daynum">
+        <span>{{ day.day_num }}</span>
+        {% if loop.first or day.day_num == 1 %}<span class="mo">{{ day.month }}</span>{% endif %}
+      </div>
+      {% for s in day.sessions %}
+      <button type="button"
+        class="pill {% if s.is_full %}full{% endif %}"
+        {% if not s.is_full %}onclick="selectPill(this)"{% else %}disabled{% endif %}
+        data-rid="{{ s.reservation_id }}"
+        data-code="{{ s.code }}"
+        data-title="{{ s.title }}"
+        data-date="{{ s.date }}"
+        data-time="{{ s.time_label }}"
+        data-loc="{{ s.location }}"
+        data-seats="{{ s.seats_left }}"
+        title="{{ s.title }} — {{ s.location }} — {{ s.time_label }}–{{ s.end_label }} — {{ s.seats_left }} of {{ s.max_seats }} seats left">
+        <div class="code">{{ s.code }}</div>
+        <div class="time">{{ s.time_label }}</div>
+        <div class="seats">{% if s.is_full %}Full{% else %}{{ s.seats_left }} seat{{ '' if s.seats_left == 1 else 's' }} left{% endif %}</div>
+      </button>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Selection bar -->
+<div class="bar" id="bar">
+  <div class="info">
+    <div class="t" id="bar-title">—</div>
+    <div class="m" id="bar-meta"></div>
+  </div>
+  <button class="go" id="bar-go" onclick="continueSelection()">Continue →</button>
+</div>
+
+<script>
+  let selected = null;
+  function selectPill(el){
+    if (selected) selected.classList.remove('sel');
+    if (selected === el){ selected = null; document.getElementById('bar').classList.remove('show'); return; }
+    selected = el; el.classList.add('sel');
+    document.getElementById('bar-title').textContent = el.dataset.title + '  (' + el.dataset.code + ')';
+    document.getElementById('bar-meta').textContent =
+      el.dataset.date + ' · ' + el.dataset.time + ' · ' + el.dataset.loc + ' · ' + el.dataset.seats + ' seats left';
+    document.getElementById('bar').classList.add('show');
+  }
+  function continueSelection(){
+    if (!selected) return;
+    // Next step (to build): join this session / collect email.
+    alert('Selected reservation ' + selected.dataset.rid + '\n' + selected.dataset.title +
+          '\n\nNext: join flow (email + confirm) — coming next.');
+  }
+</script>
+</body>
+</html>

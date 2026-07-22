@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab Scheduler — HPE Aruba Networking</title>
+<style>
+  :root{
+    --bg:#0b1419; --panel:#111f27; --panel2:#16272f; --border:rgba(255,255,255,0.08);
+    --text:#e6edf0; --text2:#8ea0a8; --accent:#2ad2c9; --green:#01a982;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
+    min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}
+  .hero{max-width:560px}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:18px}
+  h1{font-size:44px;font-weight:800;letter-spacing:-1px;line-height:1.1;margin-bottom:16px}
+  h1 .a{color:var(--accent)}
+  p.sub{color:var(--text2);font-size:16px;line-height:1.6;margin-bottom:40px}
+  .btn{
+    display:inline-block;background:var(--accent);color:#00211f;text-decoration:none;
+    font-size:17px;font-weight:800;padding:16px 40px;border-radius:12px;
+    box-shadow:0 8px 30px rgba(42,210,201,0.25);transition:.15s;
+  }
+  .btn:hover{transform:translateY(-2px);box-shadow:0 12px 38px rgba(42,210,201,0.35)}
+  .foot{margin-top:48px;color:var(--text2);font-size:12px}
+</style>
+</head>
+<body>
+  <div class="hero">
+    <div class="kicker">HPE Aruba Networking · Technical Enablement</div>
+    <h1>Reserve a <span class="a">hands-on lab</span> session</h1>
+    <p class="sub">Browse upcoming lab sessions across the next few weeks and grab a
+       seat, or schedule a session of your own. One click to get started.</p>
+    <a class="btn" href="{{ rp }}/schedule">Schedule a Lab →</a>
+    <div class="foot">Powered by the vLab scheduler</div>
+  </div>
+</body>
+</html>
