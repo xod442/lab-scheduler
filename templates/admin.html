@@ -78,6 +78,15 @@
   </div>
 
   <div class="card">
+    <h2>Transaction log</h2>
+    <p class="hint">Every booking attempt — joins and new-workshop creations — with its result.</p>
+    <div class="row">
+      <a href="{{ rp }}{{ admin_path }}/log"><button type="button">View log</button></a>
+      <a href="{{ rp }}{{ admin_path }}/log.csv"><button type="button" class="btn-sec">Download CSV</button></a>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Security</h2>
     <p class="hint">Change the admin password for this console.</p>
     <a href="{{ rp }}{{ admin_path }}/password"><button type="button" class="btn-sec">Change password</button></a>

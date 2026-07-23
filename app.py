@@ -12,13 +12,15 @@ Shadow admin console (unadvertised path, own login, Opal-style security):
   {ADMIN_PATH}/password        force/allow password change
   {ADMIN_PATH}/logout
 """
+import csv
+import io
 import json
 import os
 import sqlite3
 from datetime import datetime, timedelta
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
@@ -402,6 +404,48 @@ def admin_password_save(request: Request, new_password: str = Form(...), confirm
     conn.commit()
     conn.close()
     return RedirectResponse(url=_admin_url("?msg=Password+updated"), status_code=303)
+
+
+@app.get(ADMIN_PATH + "/log", response_class=HTMLResponse)
+def admin_log(request: Request):
+    if not get_admin(request):
+        return RedirectResponse(url=_admin_url("/login"), status_code=303)
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT ts, action, ok, user_id, course_code, res_id, start_dt, tz,
+                  num_students, notes, status_code, client_ip
+           FROM reservation_log ORDER BY id DESC LIMIT 500"""
+    ).fetchall()
+    total = conn.execute("SELECT COUNT(*) FROM reservation_log").fetchone()[0]
+    conn.close()
+    return templates.TemplateResponse(
+        request=request, name="admin_log.html",
+        context={"rows": rows, "shown": len(rows), "total": total},
+    )
+
+
+@app.get(ADMIN_PATH + "/log.csv")
+def admin_log_csv(request: Request):
+    if not get_admin(request):
+        return RedirectResponse(url=_admin_url("/login"), status_code=303)
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT id, ts, action, ok, user_id, course_code, res_id, start_dt, end_dt,
+                  tz, num_students, notes, status_code, client_ip
+           FROM reservation_log ORDER BY id DESC"""
+    ).fetchall()
+    conn.close()
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["id", "timestamp", "action", "ok", "email", "course", "res_id",
+                "start", "end", "tz", "seats", "notes", "status_code", "client_ip"])
+    for r in rows:
+        w.writerow([r["id"], r["ts"], r["action"], r["ok"], r["user_id"], r["course_code"],
+                    r["res_id"], r["start_dt"], r["end_dt"], r["tz"], r["num_students"],
+                    r["notes"], r["status_code"], r["client_ip"]])
+    buf.seek(0)
+    return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv",
+                             headers={"Content-Disposition": "attachment; filename=reservation_log.csv"})
 
 
 @app.get(ADMIN_PATH + "/logout")
