@@ -106,6 +106,8 @@
         data-time="{{ s.time_label }}"
         data-loc="{{ s.location }}"
         data-seats="{{ s.seats_left }}"
+        data-start="{{ s.start.strftime('%Y-%m-%d %H:%M') }}"
+        data-end="{{ s.end.strftime('%Y-%m-%d %H:%M') if s.end else '' }}"
         title="{{ s.title }} — {{ s.location }} — {{ s.time_label }}–{{ s.end_label }} — {{ s.seats_left }} of {{ s.max_seats }} seats left">
         <div class="code">{{ s.code }}</div>
         <div class="time">{{ s.time_label }}</div>
@@ -140,9 +142,13 @@
   }
   function continueSelection(){
     if (!selected) return;
-    // Next step (to build): join this session / collect email.
-    alert('Selected reservation ' + selected.dataset.rid + '\n' + selected.dataset.title +
-          '\n\nNext: join flow (email + confirm) — coming next.');
+    const p = new URLSearchParams({
+      code:  selected.dataset.code,
+      title: selected.dataset.title,
+      start: selected.dataset.start || '',
+      end:   selected.dataset.end || ''
+    });
+    window.location.href = "{{ rp }}/reserve?" + p.toString();
   }
 </script>
 </body>

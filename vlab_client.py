@@ -18,6 +18,7 @@ from datetime import date, datetime, timedelta
 import httpx
 
 SCHEDULER_API_URL = os.getenv("SCHEDULER_API_URL", "https://schedulerapi.edutl.hpe.com/v1/items")
+SCHEDULER_CREATE_URL = os.getenv("SCHEDULER_CREATE_URL", "https://schedulerapi.edutl.hpe.com/v1/reservations/create")
 SCHEDULER_API_KEY = os.getenv("SCHEDULER_API_KEY", "")
 
 _SAMPLE = pathlib.Path(__file__).parent / "sample_items.json"
@@ -33,6 +34,33 @@ def fetch_items(api_key: str | None = None) -> dict:
     resp = httpx.get(SCHEDULER_API_URL, headers={"X-API-KEY": key}, timeout=30)
     resp.raise_for_status()
     return resp.json()
+
+
+def create_reservation(payload: dict, api_key: str | None = None) -> dict:
+    """POST a reservation to the scheduler's create endpoint.
+
+    payload keys: userId, courseCode, startDateTime, endDateTime, tz, numStudents, notes
+    Returns a normalized result: {ok, simulated, status_code, message, raw}.
+    """
+    key = api_key if api_key is not None else SCHEDULER_API_KEY
+    if not key:
+        # Simulate mode — no live call; echo back a success so the flow is testable.
+        return {"ok": True, "simulated": True, "status_code": 200,
+                "message": "Reservation created (simulated — no API key configured).",
+                "raw": {"submitted": payload}}
+    headers = {"Content-Type": "application/json", "X-API-Key": key}
+    try:
+        resp = httpx.post(SCHEDULER_CREATE_URL, headers=headers, json=payload, timeout=30)
+    except httpx.HTTPError as exc:
+        return {"ok": False, "simulated": False, "status_code": 0,
+                "message": f"Could not reach the scheduler ({type(exc).__name__}).", "raw": {}}
+    try:
+        body = resp.json()
+    except ValueError:
+        body = {"raw_text": resp.text}
+    message = body.get("message", "") if isinstance(body, dict) else ""
+    return {"ok": resp.is_success, "simulated": False, "status_code": resp.status_code,
+            "message": message, "raw": body}
 
 
 def _time_label(dt: datetime) -> str:

@@ -12,6 +12,7 @@ Shadow admin console (unadvertised path, own login, Opal-style security):
   {ADMIN_PATH}/password        force/allow password change
   {ADMIN_PATH}/logout
 """
+import json
 import os
 import sqlite3
 from datetime import datetime
@@ -98,6 +99,15 @@ def init_db():
         )
     """)
     conn.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '')")
+    # Transaction log — one row per reservation attempt (success or failure).
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS reservation_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts TEXT, user_id TEXT, course_code TEXT, start_dt TEXT, end_dt TEXT,
+            tz TEXT, num_students INTEGER, notes TEXT,
+            status_code INTEGER, ok INTEGER, response TEXT, client_ip TEXT
+        )
+    """)
     if conn.execute("SELECT COUNT(*) FROM admin_users").fetchone()[0] == 0:
         # Default admin/admin, must change on first login (same as Opal).
         conn.execute(
@@ -178,6 +188,82 @@ def schedule(request: Request):
         request=request, name="schedule.html",
         context={"weeks": cal["weeks"], "session_count": cal["session_count"],
                  "range_label": cal["range_label"], "live": bool(api_key), "error": error},
+    )
+
+
+TZ_CHOICES = [
+    "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+    "America/Phoenix", "America/Toronto", "Europe/London", "Europe/Paris",
+    "Asia/Riyadh", "Asia/Singapore", "Australia/Sydney", "UTC",
+]
+
+
+def _api_dt(value: str) -> str:
+    """Normalize a form datetime to the scheduler's 'YYYY-MM-DD HH:MM:SS' format."""
+    s = (value or "").replace("T", " ").strip()
+    if len(s) == 16:      # 'YYYY-MM-DD HH:MM' -> add seconds
+        s += ":00"
+    return s
+
+
+def log_reservation(request: Request, payload: dict, result: dict):
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO reservation_log
+           (ts, user_id, course_code, start_dt, end_dt, tz, num_students, notes,
+            status_code, ok, response, client_ip)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (datetime.now().isoformat(), payload.get("userId"), payload.get("courseCode"),
+         payload.get("startDateTime"), payload.get("endDateTime"), payload.get("tz"),
+         payload.get("numStudents"), payload.get("notes"),
+         result.get("status_code"), 1 if result.get("ok") else 0,
+         json.dumps(result.get("raw"))[:4000],
+         request.client.host if request.client else ""),
+    )
+    conn.commit()
+    conn.close()
+
+
+@app.get("/reserve", response_class=HTMLResponse)
+def reserve_form(request: Request):
+    q = request.query_params
+
+    def to_local(s: str) -> str:  # 'YYYY-MM-DD HH:MM' -> datetime-local value
+        return s.replace(" ", "T")[:16] if s else ""
+
+    return templates.TemplateResponse(
+        request=request, name="reserve.html",
+        context={"code": q.get("code", ""), "title": q.get("title", ""),
+                 "start": to_local(q.get("start", "")), "end": to_local(q.get("end", "")),
+                 "tz_choices": TZ_CHOICES, "live": bool(get_api_key())},
+    )
+
+
+@app.post("/reserve", response_class=HTMLResponse)
+def reserve_submit(
+    request: Request,
+    courseCode: str = Form(...),
+    userId: str = Form(...),
+    startDateTime: str = Form(...),
+    endDateTime: str = Form(...),
+    tz: str = Form("America/New_York"),
+    numStudents: int = Form(1),
+    notes: str = Form(""),
+):
+    payload = {
+        "userId": userId.strip(),
+        "courseCode": courseCode.strip(),
+        "startDateTime": _api_dt(startDateTime),
+        "endDateTime": _api_dt(endDateTime),
+        "tz": tz,
+        "numStudents": int(numStudents),
+        "notes": notes.strip(),
+    }
+    result = vlab_client.create_reservation(payload, get_api_key())
+    log_reservation(request, payload, result)
+    return templates.TemplateResponse(
+        request=request, name="reserve_result.html",
+        context={"result": result, "payload": payload},
     )
 
 
