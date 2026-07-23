@@ -1,0 +1,114 @@
+[
+  {
+    "code": "TE1-101.a",
+    "title": "Campus Networking \u2013 CX Fundamentals for Juniper SE"
+  },
+  {
+    "code": "TE1-201-23.21.a",
+    "title": "HPE Aruba Networking Central - Fundamentals of Switch Mgmt"
+  },
+  {
+    "code": "TE1-202-23.21.a",
+    "title": "Campus Networking - Switching Fundamentals"
+  },
+  {
+    "code": "TE1-203-23.21.a",
+    "title": "Campus Networking - User-Based Tunneling"
+  },
+  {
+    "code": "TE1-204-23.21.a",
+    "title": "Campus Networking - Virtual Network-Based Tunneling"
+  },
+  {
+    "code": "TE1-206-24.23.a",
+    "title": "Multifabric VXLAN EVPN Workshop"
+  },
+  {
+    "code": "TE1-207-24.23.a",
+    "title": "Campus Networking - Advanced EVPN"
+  },
+  {
+    "code": "TE1-221.a",
+    "title": "HPE Networking Aruba Simulator Labs \u2013 ILT"
+  },
+  {
+    "code": "TE1-221.sp.a",
+    "title": "HPE Networking Aruba Simulator Labs \u2013 Self-Paced"
+  },
+  {
+    "code": "TE1-222.a",
+    "title": "HPE Networking Technical Enablement Hands-On Labs"
+  },
+  {
+    "code": "TE1-222.sp.a",
+    "title": "HPE Networking Technical Enablement Self-Paced Hands-On Labs"
+  },
+  {
+    "code": "TE2-101.a",
+    "title": "HPE Aruba Networking Central - Central Config: WLAN Basics"
+  },
+  {
+    "code": "TE3-201-23.21.a",
+    "title": "HPE Aruba Networking Central - NetConductor Distrib Fabrics"
+  },
+  {
+    "code": "TE3-204.a",
+    "title": "HPE Aruba Networking Central \u2013 Deploying Central NAC"
+  },
+  {
+    "code": "TE3-205.a",
+    "title": "HPE Aruba Networking Central \u2013 Deploying Central NAC - Part1"
+  },
+  {
+    "code": "te3-atm24",
+    "title": "HPE Aruba Networking Atmosphere '24 Cloud Auth"
+  },
+  {
+    "code": "TE3-Disco25",
+    "title": "Aruba TE3 Discover 2025"
+  },
+  {
+    "code": "TE4-201.b",
+    "title": "Data Center Networking - Microsegmentation with AFC & CX 10K"
+  },
+  {
+    "code": "TE4-202.b",
+    "title": "DC Networking - Spine/Leaf Networks with AFC & CX 10K"
+  },
+  {
+    "code": "TE4-203.b",
+    "title": "Data Center Networking - AFC Automation with Python"
+  },
+  {
+    "code": "TE4-204.b",
+    "title": "Data Center Networking \u2013 Telemetry with ELK Stack"
+  },
+  {
+    "code": "TE4-205.b",
+    "title": "Introduction to IMC"
+  },
+  {
+    "code": "TE4-206.b",
+    "title": "Spine-Leaf Break Fix"
+  },
+  {
+    "code": "TE4-207.b",
+    "title": "Data Center Networking \u2013 AFC Fundamentals"
+  },
+  {
+    "code": "TE4-208.b",
+    "title": "Data Center Networking - Microsegmentation with AFC & CX 10K"
+  },
+  {
+    "code": "TE4-209.sp.a",
+    "title": "Docker Deep Dive - Self-Paced"
+  },
+  {
+    "code": "TE4-211.sp.a",
+    "title": "Introduction to Kubernetes"
+  },
+  {
+    "code": "TE4-221.a",
+    "title": "Data Center Networking - Microsegmentation with AFC & CX 10K"
+  }
+]

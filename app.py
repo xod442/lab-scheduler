@@ -184,18 +184,31 @@ def schedule(request: Request):
         print(f"[schedule] scheduler fetch failed: {type(exc).__name__}: {exc}")
         error = ("We couldn't load lab sessions right now. The scheduler may be "
                  "unavailable or the API key needs attention. Please try again shortly.")
+
+    # Course-code "decoder ring", grouped by TE family (TE1/TE2/TE3/TE4).
+    groups: dict = {}
+    for c in vlab_client.load_catalog():
+        groups.setdefault(c["code"][:3].upper(), []).append(c)
+    catalog_groups = [{"family": fam, "courses": groups[fam]} for fam in sorted(groups)]
+
     return templates.TemplateResponse(
         request=request, name="schedule.html",
         context={"weeks": cal["weeks"], "session_count": cal["session_count"],
-                 "range_label": cal["range_label"], "live": bool(api_key), "error": error},
+                 "range_label": cal["range_label"], "live": bool(api_key), "error": error,
+                 "catalog_groups": catalog_groups},
     )
 
 
-TZ_CHOICES = [
-    "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
-    "America/Phoenix", "America/Toronto", "Europe/London", "Europe/Paris",
-    "Asia/Riyadh", "Asia/Singapore", "Australia/Sydney", "UTC",
-]
+def _load_timezones() -> list:
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "timezones.json")) as f:
+            return json.load(f)
+    except (FileNotFoundError, ValueError):
+        return ["America/New_York", "UTC"]
+
+
+TZ_CHOICES = _load_timezones()          # full IANA list the scheduler accepts
+DEFAULT_TZ = os.getenv("DEFAULT_TZ", "America/New_York")
 
 
 def _api_dt(value: str) -> str:
@@ -236,7 +249,9 @@ def reserve_form(request: Request):
         context={"code": q.get("code", ""), "title": q.get("title", ""),
                  "start": to_local(q.get("start", "")), "end": to_local(q.get("end", "")),
                  "join": q.get("join", "") == "1",
-                 "tz_choices": TZ_CHOICES, "live": bool(get_api_key())},
+                 "location": q.get("loc", ""),
+                 "tz_choices": TZ_CHOICES, "tz_fixed": q.get("tz") or DEFAULT_TZ,
+                 "live": bool(get_api_key())},
     )
 
 
@@ -254,13 +269,17 @@ def reserve_submit(
 ):
     # Joining a scheduled workshop = add exactly one seat. Enforce server-side so
     # the 1-seat limit can't be bypassed by tampering with the form.
-    seats = 1 if join == "1" else max(1, int(numStudents))
+    joining = join == "1"
+    seats = 1 if joining else max(1, int(numStudents))
+    # When joining, tz is the workshop's scheduled zone (derived from its location
+    # and passed through locked); otherwise the student's own selection.
+    tz_value = (tz.strip() or DEFAULT_TZ)
     payload = {
         "userId": userId.strip(),
         "courseCode": courseCode.strip(),
         "startDateTime": _api_dt(startDateTime),
         "endDateTime": _api_dt(endDateTime),
-        "tz": tz,
+        "tz": tz_value,
         "numStudents": seats,
         "notes": notes.strip(),
     }

@@ -22,6 +22,15 @@ SCHEDULER_CREATE_URL = os.getenv("SCHEDULER_CREATE_URL", "https://schedulerapi.e
 SCHEDULER_API_KEY = os.getenv("SCHEDULER_API_KEY", "")
 
 _SAMPLE = pathlib.Path(__file__).parent / "sample_items.json"
+_CATALOG = pathlib.Path(__file__).parent / "course_catalog.json"
+
+
+def load_catalog() -> list:
+    """Course-code -> title 'decoder ring'. Returns [{code, title}, ...]."""
+    try:
+        return json.loads(_CATALOG.read_text())
+    except (FileNotFoundError, ValueError):
+        return []
 
 
 def fetch_items(api_key: str | None = None) -> dict:
@@ -63,6 +72,72 @@ def create_reservation(payload: dict, api_key: str | None = None) -> dict:
             "message": message, "raw": body}
 
 
+# ── Location → IANA time zone derivation ──────────────────────────────────────
+# Scheduled sessions come back with a free-text location ("City, ST, Country")
+# but no tz, so we resolve it: city keyword → US state / CA province → country.
+_CITY_TZ = {
+    "riyadh": "Asia/Riyadh", "jeddah": "Asia/Riyadh", "dammam": "Asia/Riyadh",
+    "singapore": "Asia/Singapore", "espoo": "Europe/Helsinki", "helsinki": "Europe/Helsinki",
+    "los angeles": "America/Los_Angeles", "cupertino": "America/Los_Angeles",
+    "san jose": "America/Los_Angeles", "san francisco": "America/Los_Angeles",
+    "new york": "America/New_York", "phoenix": "America/Phoenix", "toronto": "America/Toronto",
+    "edmonton": "America/Edmonton", "alpharetta": "America/New_York", "atlanta": "America/New_York",
+    "eastern rail": "America/New_York", "london": "Europe/London", "paris": "Europe/Paris",
+    "dubai": "Asia/Dubai", "tokyo": "Asia/Tokyo", "sydney": "Australia/Sydney",
+    "bangalore": "Asia/Kolkata", "bengaluru": "Asia/Kolkata", "mumbai": "Asia/Kolkata",
+}
+_US_STATE_TZ = {
+    "CA": "America/Los_Angeles", "WA": "America/Los_Angeles", "OR": "America/Los_Angeles",
+    "NV": "America/Los_Angeles", "AZ": "America/Phoenix", "CO": "America/Denver",
+    "UT": "America/Denver", "NM": "America/Denver", "MT": "America/Denver",
+    "TX": "America/Chicago", "IL": "America/Chicago", "MN": "America/Chicago",
+    "WI": "America/Chicago", "MO": "America/Chicago", "IA": "America/Chicago",
+    "NY": "America/New_York", "GA": "America/New_York", "FL": "America/New_York",
+    "NC": "America/New_York", "SC": "America/New_York", "VA": "America/New_York",
+    "MA": "America/New_York", "NJ": "America/New_York", "PA": "America/New_York",
+    "OH": "America/New_York", "MI": "America/Detroit", "DC": "America/New_York",
+    "MD": "America/New_York", "CT": "America/New_York", "TN": "America/Chicago",
+    "HI": "Pacific/Honolulu", "AK": "America/Anchorage",
+}
+_CA_PROVINCE_TZ = {
+    "ON": "America/Toronto", "QC": "America/Toronto", "AB": "America/Edmonton",
+    "BC": "America/Vancouver", "MB": "America/Winnipeg", "SK": "America/Regina",
+    "NS": "America/Halifax", "NB": "America/Moncton", "NL": "America/St_Johns",
+}
+_COUNTRY_TZ = {
+    "usa": "America/New_York", "united states": "America/New_York",
+    "canada": "America/Toronto", "saudi arabia": "Asia/Riyadh", "singapore": "Asia/Singapore",
+    "finland": "Europe/Helsinki", "united kingdom": "Europe/London", "uk": "Europe/London",
+    "france": "Europe/Paris", "germany": "Europe/Berlin", "india": "Asia/Kolkata",
+    "japan": "Asia/Tokyo", "australia": "Australia/Sydney",
+    "united arab emirates": "Asia/Dubai", "uae": "Asia/Dubai",
+}
+DEFAULT_TZ = "America/New_York"
+
+
+def derive_timezone(location: str) -> tuple[str, bool]:
+    """Best-effort IANA tz from a free-text location. Returns (tz, confident)."""
+    loc = (location or "").strip().lower()
+    if not loc:
+        return DEFAULT_TZ, False
+    for city, tz in _CITY_TZ.items():           # 1) known city
+        if city in loc:
+            return tz, True
+    parts = [p.strip().strip(".").upper() for p in loc.split(",")]
+    country = parts[-1].lower() if parts else ""
+    if country in ("usa", "united states", "us"):
+        for p in parts:                          # 2) US state code
+            if p in _US_STATE_TZ:
+                return _US_STATE_TZ[p], True
+    if "canada" in country:
+        for p in parts:                          # 3) CA province code
+            if p in _CA_PROVINCE_TZ:
+                return _CA_PROVINCE_TZ[p], True
+    if country in _COUNTRY_TZ:                   # 4) country
+        return _COUNTRY_TZ[country], country not in ("usa", "united states", "canada")
+    return DEFAULT_TZ, False                      # 5) fallback (flag as a guess)
+
+
 def _time_label(dt: datetime) -> str:
     h = dt.hour % 12 or 12
     return f"{h}:{dt.minute:02d} {'AM' if dt.hour < 12 else 'PM'}"
@@ -92,7 +167,11 @@ def parse_sessions(payload: dict) -> list[dict]:
             max_seats = int(r.get("max_seats") or 0)
             attendees = int(r.get("attendees") or 0)
             seats_left = max(0, max_seats - attendees)
+            loc = r.get("location", "")
+            tz, tz_ok = derive_timezone(loc)
             sessions.append({
+                "tz": tz,
+                "tz_confident": tz_ok,
                 "reservation_id": r.get("reservation_id"),
                 "code": code,
                 "title": title,
@@ -105,7 +184,7 @@ def parse_sessions(payload: dict) -> list[dict]:
                 "max_seats": max_seats,
                 "seats_left": seats_left,
                 "is_full": seats_left == 0,
-                "location": r.get("location", ""),
+                "location": loc,
                 "status": r.get("status", ""),
             })
     sessions.sort(key=lambda s: s["start"])

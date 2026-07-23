@@ -65,10 +65,16 @@
         </div>
       </div>
 
+      {% if join %}
+      <label>Time zone — as scheduled for this workshop</label>
+      <div class="fixed">🌐 {{ tz_fixed }}{% if location %} &nbsp;·&nbsp; {{ location }}{% endif %}</div>
+      <input type="hidden" name="tz" value="{{ tz_fixed }}">
+      {% else %}
       <label for="tz">Time zone</label>
       <select id="tz" name="tz">
         {% for z in tz_choices %}<option value="{{ z }}">{{ z }}</option>{% endfor %}
       </select>
+      {% endif %}
 
       <label for="userId">Your email</label>
       <input type="email" id="userId" name="userId" placeholder="you@company.com" required>
