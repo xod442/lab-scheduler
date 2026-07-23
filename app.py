@@ -15,7 +15,7 @@ Shadow admin console (unadvertised path, own login, Opal-style security):
 import json
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -214,6 +214,17 @@ def _load_timezones() -> list:
 
 TZ_CHOICES = _load_timezones()          # full IANA list the scheduler accepts
 DEFAULT_TZ = os.getenv("DEFAULT_TZ", "America/New_York")
+# "Schedule your own" collects only a start date/time; the end defaults to this
+# many hours later (overridable).
+OWN_DURATION_HOURS = int(os.getenv("OWN_DURATION_HOURS", "8"))
+
+
+def _plus_hours(api_dt: str, hours: int) -> str:
+    """Given a 'YYYY-MM-DD HH:MM:SS' string, return it + hours in the same format."""
+    try:
+        return (datetime.strptime(api_dt, "%Y-%m-%d %H:%M:%S") + timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return ""
 
 
 def _api_dt(value: str) -> str:
@@ -257,6 +268,8 @@ def reserve_form(request: Request):
                  "res_id": q.get("rid", ""),
                  "location": q.get("loc", ""),
                  "tz_choices": TZ_CHOICES, "tz_fixed": q.get("tz") or DEFAULT_TZ,
+                 "catalog": vlab_client.load_catalog(),
+                 "own_hours": OWN_DURATION_HOURS,
                  "live": bool(get_api_key())},
     )
 
@@ -266,8 +279,8 @@ def reserve_submit(
     request: Request,
     courseCode: str = Form(...),
     userId: str = Form(...),
-    startDateTime: str = Form(...),
-    endDateTime: str = Form(...),
+    startDateTime: str = Form(""),
+    endDateTime: str = Form(""),
     tz: str = Form("America/New_York"),
     numStudents: int = Form(1),
     notes: str = Form(""),
@@ -287,11 +300,13 @@ def reserve_submit(
         }
         log_reservation(request, payload, result, action="join")
     else:
-        seats = 1  # one seat per booking for now (enforced server-side)
+        # Own workshop: student picks a start date/time; end defaults to +N hours.
+        start_api = _api_dt(startDateTime)
         payload = {
             "userId": userId.strip(), "courseCode": courseCode.strip(),
-            "startDateTime": _api_dt(startDateTime), "endDateTime": _api_dt(endDateTime),
-            "tz": (tz.strip() or DEFAULT_TZ), "numStudents": seats,
+            "startDateTime": start_api,
+            "endDateTime": _plus_hours(start_api, OWN_DURATION_HOURS),
+            "tz": (tz.strip() or DEFAULT_TZ), "numStudents": 1,
             "notes": notes.strip(), "resId": "",
         }
         result = vlab_client.create_reservation(payload, get_api_key())

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Reserve a Lab — HPE Aruba Networking</title>
+<title>Reserve a Lab — HPE Networking</title>
 <style>
   :root{--bg:#0b1419;--panel:#111f27;--panel2:#16272f;--border:rgba(255,255,255,0.08);
     --text:#e6edf0;--text2:#8ea0a8;--accent:#2ad2c9;--amber:#ff8d6d;}
@@ -32,6 +32,8 @@
   .selinfo{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;margin-bottom:20px;font-size:13px}
   .selinfo b{color:var(--text)}
 </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
 </head>
 <body>
 <div class="topbar">
@@ -52,19 +54,32 @@
       <input type="hidden" name="join" value="{{ '1' if join else '' }}">
       <input type="hidden" name="resId" value="{{ res_id }}">
 
-      <label for="courseCode">Course code</label>
-      <input type="text" id="courseCode" name="courseCode" value="{{ code }}" {% if join %}readonly{% endif %} required>
+      <label for="courseCode">Course</label>
+      {% if join %}
+      <input type="text" id="courseCode" name="courseCode" value="{{ code }}" readonly required>
+      {% else %}
+      <select id="courseCode" name="courseCode" required>
+        <option value="" disabled selected>— Select a course —</option>
+        {% for c in catalog %}<option value="{{ c.code }}">{{ c.code }} — {{ c.title }}</option>{% endfor %}
+      </select>
+      {% endif %}
 
+      {% if join %}
       <div class="grid2">
         <div>
           <label for="startDateTime">Start</label>
-          <input type="datetime-local" id="startDateTime" name="startDateTime" value="{{ start }}" {% if join %}readonly{% endif %} required>
+          <input type="datetime-local" id="startDateTime" name="startDateTime" value="{{ start }}" readonly required>
         </div>
         <div>
           <label for="endDateTime">End</label>
-          <input type="datetime-local" id="endDateTime" name="endDateTime" value="{{ end }}" {% if join %}readonly{% endif %} required>
+          <input type="datetime-local" id="endDateTime" name="endDateTime" value="{{ end }}" readonly required>
         </div>
       </div>
+      {% else %}
+      <label for="startDateTime">Start date &amp; time</label>
+      <input type="text" id="startDateTime" name="startDateTime" placeholder="Click to pick a date &amp; time…" autocomplete="off" required>
+      <div style="color:var(--text2);font-size:12px;margin:-8px 0 16px;">Ends {{ own_hours }} hours after start.</div>
+      {% endif %}
 
       {% if join %}
       <label>Time zone — as scheduled for this workshop</label>
@@ -73,7 +88,7 @@
       {% else %}
       <label for="tz">Time zone</label>
       <select id="tz" name="tz">
-        {% for z in tz_choices %}<option value="{{ z }}">{{ z }}</option>{% endfor %}
+        {% for z in tz_choices %}<option value="{{ z }}" {% if z == tz_fixed %}selected{% endif %}>{{ z }}</option>{% endfor %}
       </select>
       {% endif %}
 
@@ -94,5 +109,17 @@
     </form>
   </div>
 </div>
+{% if not join %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+  flatpickr("#startDateTime", {
+    enableTime: true,
+    dateFormat: "Y-m-d H:i",
+    time_24hr: true,
+    minuteIncrement: 15,
+    minDate: "today"
+  });
+</script>
+{% endif %}
 </body>
 </html>
