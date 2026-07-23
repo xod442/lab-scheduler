@@ -156,7 +156,8 @@
       code:  selected.dataset.code,
       title: selected.dataset.title,
       start: selected.dataset.start || '',
-      end:   selected.dataset.end || ''
+      end:   selected.dataset.end || '',
+      join:  '1'
     });
     window.location.href = "{{ rp }}/reserve?" + p.toString();
   }

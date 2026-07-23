@@ -235,6 +235,7 @@ def reserve_form(request: Request):
         request=request, name="reserve.html",
         context={"code": q.get("code", ""), "title": q.get("title", ""),
                  "start": to_local(q.get("start", "")), "end": to_local(q.get("end", "")),
+                 "join": q.get("join", "") == "1",
                  "tz_choices": TZ_CHOICES, "live": bool(get_api_key())},
     )
 
@@ -249,14 +250,18 @@ def reserve_submit(
     tz: str = Form("America/New_York"),
     numStudents: int = Form(1),
     notes: str = Form(""),
+    join: str = Form(""),
 ):
+    # Joining a scheduled workshop = add exactly one seat. Enforce server-side so
+    # the 1-seat limit can't be bypassed by tampering with the form.
+    seats = 1 if join == "1" else max(1, int(numStudents))
     payload = {
         "userId": userId.strip(),
         "courseCode": courseCode.strip(),
         "startDateTime": _api_dt(startDateTime),
         "endDateTime": _api_dt(endDateTime),
         "tz": tz,
-        "numStudents": int(numStudents),
+        "numStudents": seats,
         "notes": notes.strip(),
     }
     result = vlab_client.create_reservation(payload, get_api_key())
