@@ -80,14 +80,9 @@
       <label for="userId">Your email</label>
       <input type="email" id="userId" name="userId" placeholder="you@company.com" required>
 
-      {% if join %}
       <label>Seats</label>
-      <div class="fixed">1 seat &nbsp;·&nbsp; you're being added to this scheduled workshop</div>
+      <div class="fixed">1 seat &nbsp;·&nbsp; {% if join %}you're being added to this scheduled workshop{% else %}one seat per booking for now{% endif %}</div>
       <input type="hidden" name="numStudents" value="1">
-      {% else %}
-      <label for="numStudents">Number of students</label>
-      <input type="number" id="numStudents" name="numStudents" value="1" min="1" max="50" required>
-      {% endif %}
 
       <label for="notes">{{ 'Comment (optional)' if join else 'Notes (optional)' }}</label>
       <textarea id="notes" name="notes" placeholder="Anything the lab team should know…"></textarea>

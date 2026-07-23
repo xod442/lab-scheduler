@@ -287,7 +287,7 @@ def reserve_submit(
         }
         log_reservation(request, payload, result, action="join")
     else:
-        seats = max(1, int(numStudents))
+        seats = 1  # one seat per booking for now (enforced server-side)
         payload = {
             "userId": userId.strip(), "courseCode": courseCode.strip(),
             "startDateTime": _api_dt(startDateTime), "endDateTime": _api_dt(endDateTime),
