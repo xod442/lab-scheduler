@@ -40,8 +40,8 @@
 </div>
 
 <div class="wrap">
-  <h1>{{ 'Join an Existing Workshop' if join else 'Reserve a Lab Session' }} {% if not live %}<span class="simbadge">SIMULATED</span>{% endif %}</h1>
-  <div class="sub">{% if join %}You'll be added to this scheduled workshop. Enter your email (and an optional comment) and submit.{% else %}Fill in the details below and submit to book your seat.{% endif %}</div>
+  <h1>{{ 'Join an Existing Workshop' if join else 'Schedule Your Own Workshop' }} {% if not live %}<span class="simbadge">SIMULATED</span>{% endif %}</h1>
+  <div class="sub">{% if join %}You'll be added to this scheduled workshop. Enter your email (and an optional comment) and submit.{% else %}Book a new workshop session — choose the course, date/time, and time zone, then submit.{% endif %}</div>
 
   {% if title %}
   <div class="selinfo">Selected: <b>{{ title }}</b>{% if code %} ({{ code }}){% endif %}</div>

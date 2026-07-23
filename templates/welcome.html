@@ -24,6 +24,9 @@
     box-shadow:0 8px 30px rgba(42,210,201,0.25);transition:.15s;
   }
   .btn:hover{transform:translateY(-2px);box-shadow:0 12px 38px rgba(42,210,201,0.35)}
+  .btn-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+  .btn.secondary{background:transparent;color:var(--accent);border:1px solid var(--accent);box-shadow:none}
+  .btn.secondary:hover{background:rgba(42,210,201,0.1);box-shadow:none}
   .foot{margin-top:48px;color:var(--text2);font-size:12px}
 </style>
 </head>
@@ -33,7 +36,10 @@
     <h1>Reserve a <span class="a">hands-on lab</span> session</h1>
     <p class="sub">Browse upcoming lab sessions across the next few weeks and grab a
        seat, or schedule a session of your own. One click to get started.</p>
-    <a class="btn" href="{{ rp }}/schedule">Schedule a Lab →</a>
+    <div class="btn-row">
+      <a class="btn" href="{{ rp }}/schedule">Join a Workshop →</a>
+      <a class="btn secondary" href="{{ rp }}/reserve">Schedule Your Own Workshop →</a>
+    </div>
     <div class="foot">Powered by the vLab scheduler</div>
   </div>
 </body>
