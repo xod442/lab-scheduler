@@ -32,8 +32,8 @@
   .selinfo{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;margin-bottom:20px;font-size:13px}
   .selinfo b{color:var(--text)}
 </style>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+<link rel="stylesheet" href="{{ rp }}/static/vendor/flatpickr.min.css">
+<link rel="stylesheet" href="{{ rp }}/static/vendor/flatpickr-dark.css">
 </head>
 <body>
 <div class="topbar">
@@ -110,7 +110,7 @@
   </div>
 </div>
 {% if not join %}
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="{{ rp }}/static/vendor/flatpickr.min.js"></script>
 <script>
   flatpickr("#startDateTime", {
     enableTime: true,
