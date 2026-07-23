@@ -45,6 +45,8 @@
   .pill:hover{border-color:var(--accent);transform:translateY(-1px)}
   .pill.sel{background:rgba(42,210,201,0.18);border-color:var(--accent);border-left-color:var(--accent)}
   .pill.full{border-left-color:var(--amber);opacity:0.6;cursor:not-allowed}
+  @keyframes fullflash{0%,100%{transform:translateX(0)}20%{transform:translateX(-3px)}60%{transform:translateX(3px)}}
+  .pill.full.flash{animation:fullflash .3s;opacity:0.9;border-color:var(--amber)}
   .pill .code{font-weight:700;font-size:11px}
   .pill .time{color:var(--text2);font-size:11px}
   .pill .seats{font-size:10px;font-weight:700;color:var(--green)}
@@ -98,7 +100,7 @@
       {% for s in day.sessions %}
       <button type="button"
         class="pill {% if s.is_full %}full{% endif %}"
-        {% if not s.is_full %}onclick="selectPill(this)"{% else %}disabled{% endif %}
+        onclick="{{ 'selectFull(this)' if s.is_full else 'selectPill(this)' }}"
         data-rid="{{ s.reservation_id }}"
         data-code="{{ s.code }}"
         data-title="{{ s.title }}"
@@ -139,6 +141,14 @@
     document.getElementById('bar-meta').textContent =
       el.dataset.date + ' · ' + el.dataset.time + ' · ' + el.dataset.loc + ' · ' + el.dataset.seats + ' seats left';
     document.getElementById('bar').classList.add('show');
+  }
+  function selectFull(el){
+    // Full session: not bookable. Clear any current selection so the
+    // Continue bar goes away, and flash the pill to show why.
+    if (selected){ selected.classList.remove('sel'); selected = null; }
+    document.getElementById('bar').classList.remove('show');
+    el.classList.add('flash');
+    setTimeout(function(){ el.classList.remove('flash'); }, 350);
   }
   function continueSelection(){
     if (!selected) return;
