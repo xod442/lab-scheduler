@@ -40,8 +40,8 @@
 </div>
 
 <div class="wrap">
-  <h1>Reserve a lab session {% if not live %}<span class="simbadge">SIMULATED</span>{% endif %}</h1>
-  <div class="sub">Fill in the details below and submit to book your seat.</div>
+  <h1>{{ 'Join an Existing Workshop' if join else 'Reserve a Lab Session' }} {% if not live %}<span class="simbadge">SIMULATED</span>{% endif %}</h1>
+  <div class="sub">{% if join %}You'll be added to this scheduled workshop. Enter your email (and an optional comment) and submit.{% else %}Fill in the details below and submit to book your seat.{% endif %}</div>
 
   {% if title %}
   <div class="selinfo">Selected: <b>{{ title }}</b>{% if code %} ({{ code }}){% endif %}</div>
@@ -50,6 +50,7 @@
   <div class="card">
     <form method="post" action="{{ rp }}/reserve">
       <input type="hidden" name="join" value="{{ '1' if join else '' }}">
+      <input type="hidden" name="resId" value="{{ res_id }}">
 
       <label for="courseCode">Course code</label>
       <input type="text" id="courseCode" name="courseCode" value="{{ code }}" {% if join %}readonly{% endif %} required>
@@ -88,11 +89,11 @@
       <input type="number" id="numStudents" name="numStudents" value="1" min="1" max="50" required>
       {% endif %}
 
-      <label for="notes">Notes (optional)</label>
+      <label for="notes">{{ 'Comment (optional)' if join else 'Notes (optional)' }}</label>
       <textarea id="notes" name="notes" placeholder="Anything the lab team should know…"></textarea>
 
       <div class="row">
-        <button class="btn" type="submit">Reserve this lab →</button>
+        <button class="btn" type="submit">{{ 'Join this workshop →' if join else 'Reserve this lab →' }}</button>
         <a class="btn-sec" href="{{ rp }}/schedule">Cancel</a>
       </div>
     </form>

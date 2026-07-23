@@ -104,10 +104,15 @@ def init_db():
         CREATE TABLE IF NOT EXISTS reservation_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             ts TEXT, user_id TEXT, course_code TEXT, start_dt TEXT, end_dt TEXT,
-            tz TEXT, num_students INTEGER, notes TEXT,
+            tz TEXT, num_students INTEGER, notes TEXT, res_id TEXT, action TEXT,
             status_code INTEGER, ok INTEGER, response TEXT, client_ip TEXT
         )
     """)
+    for col in ("res_id TEXT", "action TEXT"):  # add to pre-existing tables
+        try:
+            conn.execute(f"ALTER TABLE reservation_log ADD COLUMN {col}")
+        except sqlite3.OperationalError:
+            pass
     if conn.execute("SELECT COUNT(*) FROM admin_users").fetchone()[0] == 0:
         # Default admin/admin, must change on first login (same as Opal).
         conn.execute(
@@ -219,16 +224,16 @@ def _api_dt(value: str) -> str:
     return s
 
 
-def log_reservation(request: Request, payload: dict, result: dict):
+def log_reservation(request: Request, payload: dict, result: dict, action: str = "create"):
     conn = get_db()
     conn.execute(
         """INSERT INTO reservation_log
            (ts, user_id, course_code, start_dt, end_dt, tz, num_students, notes,
-            status_code, ok, response, client_ip)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            res_id, action, status_code, ok, response, client_ip)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (datetime.now().isoformat(), payload.get("userId"), payload.get("courseCode"),
          payload.get("startDateTime"), payload.get("endDateTime"), payload.get("tz"),
-         payload.get("numStudents"), payload.get("notes"),
+         payload.get("numStudents"), payload.get("notes"), payload.get("resId"), action,
          result.get("status_code"), 1 if result.get("ok") else 0,
          json.dumps(result.get("raw"))[:4000],
          request.client.host if request.client else ""),
@@ -249,6 +254,7 @@ def reserve_form(request: Request):
         context={"code": q.get("code", ""), "title": q.get("title", ""),
                  "start": to_local(q.get("start", "")), "end": to_local(q.get("end", "")),
                  "join": q.get("join", "") == "1",
+                 "res_id": q.get("rid", ""),
                  "location": q.get("loc", ""),
                  "tz_choices": TZ_CHOICES, "tz_fixed": q.get("tz") or DEFAULT_TZ,
                  "live": bool(get_api_key())},
@@ -266,25 +272,30 @@ def reserve_submit(
     numStudents: int = Form(1),
     notes: str = Form(""),
     join: str = Form(""),
+    resId: str = Form(""),
 ):
-    # Joining a scheduled workshop = add exactly one seat. Enforce server-side so
-    # the 1-seat limit can't be bypassed by tampering with the form.
-    joining = join == "1"
-    seats = 1 if joining else max(1, int(numStudents))
-    # When joining, tz is the workshop's scheduled zone (derived from its location
-    # and passed through locked); otherwise the student's own selection.
-    tz_value = (tz.strip() or DEFAULT_TZ)
-    payload = {
-        "userId": userId.strip(),
-        "courseCode": courseCode.strip(),
-        "startDateTime": _api_dt(startDateTime),
-        "endDateTime": _api_dt(endDateTime),
-        "tz": tz_value,
-        "numStudents": seats,
-        "notes": notes.strip(),
-    }
-    result = vlab_client.create_reservation(payload, get_api_key())
-    log_reservation(request, payload, result)
+    if join == "1":
+        # Join an EXISTING reservation: the scheduler gets resId + data.
+        # Seats hard-capped at 1 (student adds only themselves).
+        data = {"userId": userId.strip(), "comment": notes.strip(), "seats": 1}
+        result = vlab_client.join_reservation(resId.strip(), data, get_api_key())
+        payload = {  # for the transaction log / result display
+            "userId": userId.strip(), "courseCode": courseCode.strip(),
+            "startDateTime": _api_dt(startDateTime), "endDateTime": _api_dt(endDateTime),
+            "tz": (tz.strip() or DEFAULT_TZ), "numStudents": 1,
+            "notes": notes.strip(), "resId": resId.strip(),
+        }
+        log_reservation(request, payload, result, action="join")
+    else:
+        seats = max(1, int(numStudents))
+        payload = {
+            "userId": userId.strip(), "courseCode": courseCode.strip(),
+            "startDateTime": _api_dt(startDateTime), "endDateTime": _api_dt(endDateTime),
+            "tz": (tz.strip() or DEFAULT_TZ), "numStudents": seats,
+            "notes": notes.strip(), "resId": "",
+        }
+        result = vlab_client.create_reservation(payload, get_api_key())
+        log_reservation(request, payload, result, action="create")
     return templates.TemplateResponse(
         request=request, name="reserve_result.html",
         context={"result": result, "payload": payload},

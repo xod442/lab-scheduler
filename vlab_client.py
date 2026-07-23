@@ -19,6 +19,9 @@ import httpx
 
 SCHEDULER_API_URL = os.getenv("SCHEDULER_API_URL", "https://schedulerapi.edutl.hpe.com/v1/items")
 SCHEDULER_CREATE_URL = os.getenv("SCHEDULER_CREATE_URL", "https://schedulerapi.edutl.hpe.com/v1/reservations/create")
+# Join-an-existing-reservation ("add a seat") endpoint. {resId} is substituted into
+# the path; the body is FORM-encoded (matches single_seat.py: requests.post(url, data=...)).
+SCHEDULER_JOIN_URL = os.getenv("SCHEDULER_JOIN_URL", "https://schedulerapi.edutl.hpe.com/v1/reservations/{resId}/add-seat/")
 SCHEDULER_API_KEY = os.getenv("SCHEDULER_API_KEY", "")
 
 _SAMPLE = pathlib.Path(__file__).parent / "sample_items.json"
@@ -138,6 +141,41 @@ def derive_timezone(location: str) -> tuple[str, bool]:
     return DEFAULT_TZ, False                      # 5) fallback (flag as a guess)
 
 
+def join_reservation(res_id: str, data: dict, api_key: str | None = None) -> dict:
+    """Add a student to an EXISTING reservation.
+
+    Passes two things to the scheduler, as its join script expects:
+      resId  — the existing reservation's id
+      data   — {userId, comment, seats}
+    Returns a normalized result: {ok, simulated, status_code, message, raw}.
+    """
+    key = api_key if api_key is not None else SCHEDULER_API_KEY
+    if not key:
+        return {"ok": True, "simulated": True, "status_code": 200,
+                "message": "Joined workshop (simulated — no API key configured).",
+                "raw": {"resId": res_id, "data": data}}
+    headers = {"X-API-Key": key}
+    url = SCHEDULER_JOIN_URL
+    if "{resid}" in url.lower():
+        url = url.replace("{resId}", str(res_id)).replace("{resid}", str(res_id))
+        form = {k: str(v) for k, v in data.items()}
+    else:
+        form = {"resId": str(res_id), **{k: str(v) for k, v in data.items()}}
+    try:
+        # Form-encoded (application/x-www-form-urlencoded), matching single_seat.py.
+        resp = httpx.post(url, headers=headers, data=form, timeout=30)
+    except httpx.HTTPError as exc:
+        return {"ok": False, "simulated": False, "status_code": 0,
+                "message": f"Could not reach the scheduler ({type(exc).__name__}).", "raw": {}}
+    try:
+        b = resp.json()
+    except ValueError:
+        b = {"raw_text": resp.text}
+    message = b.get("message", "") if isinstance(b, dict) else ""
+    return {"ok": resp.is_success, "simulated": False, "status_code": resp.status_code,
+            "message": message, "raw": b}
+
+
 def _time_label(dt: datetime) -> str:
     h = dt.hour % 12 or 12
     return f"{h}:{dt.minute:02d} {'AM' if dt.hour < 12 else 'PM'}"
@@ -195,7 +233,7 @@ def build_calendar(payload: dict) -> dict:
     """Turn the payload into a weeks x days calendar grid for the template."""
     sessions = parse_sessions(payload)
     if not sessions:
-        return {"weeks": [], "sessions": [], "session_count": 0}
+        return {"weeks": [], "sessions": [], "session_count": 0, "range_label": ""}
 
     by_date: dict[date, list] = {}
     for s in sessions:
