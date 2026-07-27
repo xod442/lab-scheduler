@@ -76,10 +76,10 @@
   .bar .go{background:var(--accent);color:#00211f;border:none;border-radius:9px;padding:11px 24px;font-weight:800;font-size:14px;cursor:pointer;white-space:nowrap}
   .bar .go:hover{filter:brightness(1.08)}
 
-  /* New-workshop mode: whole day is the click target; pills are display-only */
-  .mode-new .pill{pointer-events:none}
-  .mode-new .cal-day.clickable{cursor:pointer}
-  .mode-new .cal-day.clickable:hover{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  /* Both modes: the day cell is the click target; pills inside are display-only */
+  .pill{pointer-events:none}
+  .cal-day.clickable{cursor:pointer}
+  .cal-day.clickable:hover{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
   .mode-new .cal-day.clickable .daynum::after{content:"＋";color:var(--accent);font-weight:800}
 
   /* Day preview modal */
@@ -99,6 +99,13 @@
   .dm-meta{font-size:11px;color:var(--text2);margin-top:2px}
   .dm-seats{font-size:11px;font-weight:700;color:var(--green);white-space:nowrap}
   .dm-seats.full{color:var(--amber)}
+  .dm-right{display:flex;align-items:center;gap:10px;white-space:nowrap}
+  .dm-join{font-size:11px;font-weight:800;color:#00211f;background:var(--accent);border-radius:6px;padding:4px 10px}
+  .dm-row.joinable{cursor:pointer;margin:0 -20px;padding-left:20px;padding-right:20px}
+  .dm-row.joinable:hover{background:var(--panel2)}
+  .dm-row.joinable:hover .dm-join{filter:brightness(1.1)}
+  .dm-row.full{opacity:0.5}
+  .dm-hint{flex:1;color:var(--text2);font-size:12px}
   .dm-empty{color:var(--text2);font-size:13px;padding:20px 0;text-align:center}
   .modal-foot{display:flex;gap:10px;align-items:center;padding:16px 20px;border-top:1px solid var(--border)}
   .modal-foot .go{background:var(--accent);color:#00211f;border:none;border-radius:9px;padding:11px 22px;font-weight:800;font-size:14px}
@@ -123,7 +130,7 @@
     ⚠️ {{ error }}
   </div>
   {% else %}
-  <div class="sub">{% if mode == 'new' %}{{ session_count }} session{{ '' if session_count == 1 else 's' }} on the calendar. Click any day to see what's already scheduled, then continue to sign up for a new workshop.{% else %}{{ session_count }} session{{ '' if session_count == 1 else 's' }} scheduled. Click a session to select it, then continue.{% endif %}</div>
+  <div class="sub">{% if mode == 'new' %}{{ session_count }} session{{ '' if session_count == 1 else 's' }} on the calendar. Click any day to see what's already scheduled, then continue to sign up for a new workshop.{% else %}{{ session_count }} session{{ '' if session_count == 1 else 's' }} scheduled. Click a day to see its workshops, then pick one to join.{% endif %}</div>
   <div class="cal-range">📅 {{ range_label }}</div>
   {% endif %}
 
@@ -150,8 +157,9 @@
   {% for week in weeks %}
   <div class="cal-week">
     {% for day in week %}
-    <div class="cal-day {% if day.is_weekend %}weekend{% endif %} {% if day.in_past %}past{% endif %} {% if day.is_today %}today{% endif %}{% if mode == 'new' and not day.in_past %} clickable{% endif %}"
-      {% if mode == 'new' and not day.in_past %}onclick="openDay(this)" data-date="{{ day.date }}" data-label="{{ day.date.strftime('%A, %B %d, %Y') }}"{% endif %}>
+    {% set day_clickable = (not day.in_past) and (mode == 'new' or day.sessions) %}
+    <div class="cal-day {% if day.is_weekend %}weekend{% endif %} {% if day.in_past %}past{% endif %} {% if day.is_today %}today{% endif %}{% if day_clickable %} clickable{% endif %}"
+      {% if day_clickable %}onclick="openDay(this)" data-date="{{ day.date }}" data-label="{{ day.date.strftime('%A, %B %d, %Y') }}"{% endif %}>
       <div class="daynum">
         <span>{{ day.day_num }}</span>
         {% if loop.first or day.day_num == 1 %}<span class="mo">{{ day.month }}</span>{% endif %}
@@ -159,7 +167,6 @@
       {% for s in day.sessions %}
       <button type="button"
         class="pill {% if s.is_full %}full{% endif %}"
-        onclick="{{ 'selectFull(this)' if s.is_full else 'selectPill(this)' }}"
         data-rid="{{ s.reservation_id }}"
         data-code="{{ s.code }}"
         data-title="{{ s.title }}"
@@ -182,7 +189,7 @@
   {% endfor %}
 </div>
 
-<!-- Day preview modal (new-workshop mode) -->
+<!-- Day preview modal — new mode: continue to sign up; join mode: pick a workshop -->
 <div class="modal-overlay" id="daymodal" onclick="if(event.target===this)closeDay()">
   <div class="modal-card">
     <div class="modal-head">
@@ -191,85 +198,83 @@
     </div>
     <div class="modal-body" id="dm-list"></div>
     <div class="modal-foot">
+      {% if mode == 'new' %}
       <a class="go" id="dm-continue" href="#">Continue to sign up →</a>
       <button type="button" class="btn-sec" onclick="closeDay()">Cancel</button>
+      {% else %}
+      <div class="dm-hint">Click a workshop to join it.</div>
+      <button type="button" class="btn-sec" onclick="closeDay()">Close</button>
+      {% endif %}
     </div>
   </div>
 </div>
 
-<!-- Selection bar -->
-<div class="bar" id="bar">
-  <div class="info">
-    <div class="t" id="bar-title">—</div>
-    <div class="m" id="bar-meta"></div>
-  </div>
-  <button class="go" id="bar-go" onclick="continueSelection()">Continue →</button>
-</div>
-
 <script>
-  let selected = null;
-  function selectPill(el){
-    if (selected) selected.classList.remove('sel');
-    if (selected === el){ selected = null; document.getElementById('bar').classList.remove('show'); return; }
-    selected = el; el.classList.add('sel');
-    document.getElementById('bar-title').textContent = el.dataset.title + '  (' + el.dataset.code + ')';
-    document.getElementById('bar-meta').textContent =
-      el.dataset.date + ' · ' + el.dataset.time + ' · ' + el.dataset.loc + ' · ' + el.dataset.seats + ' seats left';
-    document.getElementById('bar').classList.add('show');
-  }
-  function selectFull(el){
-    // Full session: not bookable. Clear any current selection so the
-    // Continue bar goes away, and flash the pill to show why.
-    if (selected){ selected.classList.remove('sel'); selected = null; }
-    document.getElementById('bar').classList.remove('show');
-    el.classList.add('flash');
-    setTimeout(function(){ el.classList.remove('flash'); }, 350);
-  }
-  function continueSelection(){
-    if (!selected) return;
-    const p = new URLSearchParams({
-      rid:   selected.dataset.rid || '',
-      code:  selected.dataset.code,
-      title: selected.dataset.title,
-      start: selected.dataset.start || '',
-      end:   selected.dataset.end || '',
-      tz:    selected.dataset.tz || '',
-      loc:   selected.dataset.loc || '',
-      join:  '1'
-    });
-    window.location.href = "{{ rp }}/reserve?" + p.toString();
-  }
+  var MODE = "{{ mode }}";
 
-  // ── New-workshop mode: click a day → preview scheduled workshops → continue ──
+  // Click a day → list that day's workshops. In "new" mode the rows are a
+  // read-only preview and the footer continues to the create form; in "join"
+  // mode each non-full row is clickable and joins that workshop.
   function openDay(dayEl){
     document.getElementById('dm-title').textContent = dayEl.dataset.label;
     var body = document.getElementById('dm-list');
     body.innerHTML = '';
     var pills = dayEl.querySelectorAll('.pill');
     if (pills.length === 0){
-      body.innerHTML = '<div class="dm-empty">Nothing scheduled this day yet — you\'d be the first.</div>';
+      body.innerHTML = '<div class="dm-empty">Nothing scheduled this day yet' +
+        (MODE === 'new' ? ' — you\'d be the first.' : '.') + '</div>';
     } else {
       pills.forEach(function(p){
         var full = p.classList.contains('full');
+        var joinable = (MODE === 'join') && !full;
         var row = document.createElement('div');
-        row.className = 'dm-row';
+        row.className = 'dm-row' + (joinable ? ' joinable' : '') + (full && MODE === 'join' ? ' full' : '');
         row.innerHTML =
           '<div class="dm-code"></div>' +
           '<div class="dm-main"><div class="dm-name"></div><div class="dm-meta"></div></div>' +
-          '<div class="dm-seats' + (full ? ' full' : '') + '"></div>';
+          '<div class="dm-right"></div>';
         row.querySelector('.dm-code').textContent = p.dataset.code;
         row.querySelector('.dm-name').textContent = p.dataset.title || p.dataset.code;
         row.querySelector('.dm-meta').textContent =
           p.dataset.time + (p.dataset.loc ? ' · ' + p.dataset.loc : '');
-        row.querySelector('.dm-seats').textContent =
-          full ? 'Full' : (p.dataset.seats + ' left');
+        var right = row.querySelector('.dm-right');
+        if (joinable){
+          var seats = document.createElement('span'); seats.className = 'dm-seats';
+          seats.textContent = p.dataset.seats + ' left';
+          var join = document.createElement('span'); join.className = 'dm-join';
+          join.textContent = 'Join →';
+          right.appendChild(seats); right.appendChild(join);
+          row.addEventListener('click', function(){ joinSession(p); });
+        } else {
+          var seats2 = document.createElement('span');
+          seats2.className = 'dm-seats' + (full ? ' full' : '');
+          seats2.textContent = full ? 'Full' : (p.dataset.seats + ' left');
+          right.appendChild(seats2);
+        }
         body.appendChild(row);
       });
     }
-    document.getElementById('dm-continue').href =
-      "{{ rp }}/reserve?start=" + encodeURIComponent(dayEl.dataset.date + " 09:00");
+    if (MODE === 'new'){
+      var cont = document.getElementById('dm-continue');
+      if (cont) cont.href = "{{ rp }}/reserve?start=" + encodeURIComponent(dayEl.dataset.date + " 09:00");
+    }
     document.getElementById('daymodal').classList.add('show');
   }
+
+  function joinSession(p){
+    var q = new URLSearchParams({
+      rid:   p.dataset.rid || '',
+      code:  p.dataset.code,
+      title: p.dataset.title,
+      start: p.dataset.start || '',
+      end:   p.dataset.end || '',
+      tz:    p.dataset.tz || '',
+      loc:   p.dataset.loc || '',
+      join:  '1'
+    });
+    window.location.href = "{{ rp }}/reserve?" + q.toString();
+  }
+
   function closeDay(){ document.getElementById('daymodal').classList.remove('show'); }
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeDay(); });
 </script>
