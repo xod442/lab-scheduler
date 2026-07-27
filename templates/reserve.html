@@ -38,7 +38,7 @@
 <body>
 <div class="topbar">
   <div class="brand"><span>Lab</span> Scheduler</div>
-  <a class="back" href="{{ rp }}/schedule">← Back to calendar</a>
+  <a class="back" href="{{ rp }}/schedule{% if not join %}?mode=new{% endif %}">← Back to calendar</a>
 </div>
 
 <div class="wrap">
@@ -104,7 +104,7 @@
 
       <div class="row">
         <button class="btn" type="submit">{{ 'Join this workshop →' if join else 'Reserve this lab →' }}</button>
-        <a class="btn-sec" href="{{ rp }}/schedule">Cancel</a>
+        <a class="btn-sec" href="{{ rp }}/schedule{% if not join %}?mode=new{% endif %}">Cancel</a>
       </div>
     </form>
   </div>
@@ -117,7 +117,8 @@
     dateFormat: "Y-m-d H:i",
     time_24hr: true,
     minuteIncrement: 15,
-    minDate: "today"
+    minDate: "today"{% if start %},
+    defaultDate: "{{ start.replace('T', ' ') }}"{% endif %}
   });
 </script>
 {% endif %}

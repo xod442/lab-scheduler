@@ -75,9 +75,38 @@
   .bar .m{color:var(--text2);font-size:12px;margin-top:2px}
   .bar .go{background:var(--accent);color:#00211f;border:none;border-radius:9px;padding:11px 24px;font-weight:800;font-size:14px;cursor:pointer;white-space:nowrap}
   .bar .go:hover{filter:brightness(1.08)}
+
+  /* New-workshop mode: whole day is the click target; pills are display-only */
+  .mode-new .pill{pointer-events:none}
+  .mode-new .cal-day.clickable{cursor:pointer}
+  .mode-new .cal-day.clickable:hover{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .mode-new .cal-day.clickable .daynum::after{content:"＋";color:var(--accent);font-weight:800}
+
+  /* Day preview modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .modal-overlay.show{display:flex}
+  .modal-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;max-width:460px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.5);overflow:hidden}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--border)}
+  .modal-title{font-weight:800;font-size:16px}
+  .modal-x{background:transparent;border:none;color:var(--text2);font-size:16px;cursor:pointer;line-height:1}
+  .modal-x:hover{color:var(--text)}
+  .modal-body{padding:6px 20px;max-height:52vh;overflow-y:auto}
+  .dm-row{display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)}
+  .dm-row:last-child{border-bottom:none}
+  .dm-code{flex:0 0 auto;font-family:ui-monospace,monospace;font-size:11px;font-weight:700;color:var(--accent);background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:3px 7px}
+  .dm-main{flex:1;min-width:0}
+  .dm-name{font-size:13px;font-weight:600}
+  .dm-meta{font-size:11px;color:var(--text2);margin-top:2px}
+  .dm-seats{font-size:11px;font-weight:700;color:var(--green);white-space:nowrap}
+  .dm-seats.full{color:var(--amber)}
+  .dm-empty{color:var(--text2);font-size:13px;padding:20px 0;text-align:center}
+  .modal-foot{display:flex;gap:10px;align-items:center;padding:16px 20px;border-top:1px solid var(--border)}
+  .modal-foot .go{background:var(--accent);color:#00211f;border:none;border-radius:9px;padding:11px 22px;font-weight:800;font-size:14px}
+  .modal-foot .go:hover{filter:brightness(1.08)}
+  .modal-foot .btn-sec{background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:9px;padding:11px 18px;font-weight:700;font-size:14px;cursor:pointer}
 </style>
 </head>
-<body>
+<body class="mode-{{ mode }}">
 
 <div class="topbar">
   <div class="brand"><span>Lab</span> Scheduler</div>
@@ -86,7 +115,7 @@
 
 <div class="wrap">
   <div class="hero">
-    <h1>Upcoming lab sessions</h1>
+    <h1>{{ 'Sign up for a new workshop' if mode == 'new' else 'Upcoming lab sessions' }}</h1>
     {% if not live %}<span class="simbadge">SIMULATED DATA</span>{% endif %}
   </div>
   {% if error %}
@@ -94,7 +123,7 @@
     ⚠️ {{ error }}
   </div>
   {% else %}
-  <div class="sub">{{ session_count }} session{{ '' if session_count == 1 else 's' }} scheduled. Click a session to select it, then continue.</div>
+  <div class="sub">{% if mode == 'new' %}{{ session_count }} session{{ '' if session_count == 1 else 's' }} on the calendar. Click any day to see what's already scheduled, then continue to sign up for a new workshop.{% else %}{{ session_count }} session{{ '' if session_count == 1 else 's' }} scheduled. Click a session to select it, then continue.{% endif %}</div>
   <div class="cal-range">📅 {{ range_label }}</div>
   {% endif %}
 
@@ -121,7 +150,8 @@
   {% for week in weeks %}
   <div class="cal-week">
     {% for day in week %}
-    <div class="cal-day {% if day.is_weekend %}weekend{% endif %} {% if day.in_past %}past{% endif %} {% if day.is_today %}today{% endif %}">
+    <div class="cal-day {% if day.is_weekend %}weekend{% endif %} {% if day.in_past %}past{% endif %} {% if day.is_today %}today{% endif %}{% if mode == 'new' and not day.in_past %} clickable{% endif %}"
+      {% if mode == 'new' and not day.in_past %}onclick="openDay(this)" data-date="{{ day.date }}" data-label="{{ day.date.strftime('%A, %B %d, %Y') }}"{% endif %}>
       <div class="daynum">
         <span>{{ day.day_num }}</span>
         {% if loop.first or day.day_num == 1 %}<span class="mo">{{ day.month }}</span>{% endif %}
@@ -150,6 +180,21 @@
     {% endfor %}
   </div>
   {% endfor %}
+</div>
+
+<!-- Day preview modal (new-workshop mode) -->
+<div class="modal-overlay" id="daymodal" onclick="if(event.target===this)closeDay()">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title" id="dm-title">—</div>
+      <button class="modal-x" type="button" onclick="closeDay()" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body" id="dm-list"></div>
+    <div class="modal-foot">
+      <a class="go" id="dm-continue" href="#">Continue to sign up →</a>
+      <button type="button" class="btn-sec" onclick="closeDay()">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <!-- Selection bar -->
@@ -194,6 +239,39 @@
     });
     window.location.href = "{{ rp }}/reserve?" + p.toString();
   }
+
+  // ── New-workshop mode: click a day → preview scheduled workshops → continue ──
+  function openDay(dayEl){
+    document.getElementById('dm-title').textContent = dayEl.dataset.label;
+    var body = document.getElementById('dm-list');
+    body.innerHTML = '';
+    var pills = dayEl.querySelectorAll('.pill');
+    if (pills.length === 0){
+      body.innerHTML = '<div class="dm-empty">Nothing scheduled this day yet — you\'d be the first.</div>';
+    } else {
+      pills.forEach(function(p){
+        var full = p.classList.contains('full');
+        var row = document.createElement('div');
+        row.className = 'dm-row';
+        row.innerHTML =
+          '<div class="dm-code"></div>' +
+          '<div class="dm-main"><div class="dm-name"></div><div class="dm-meta"></div></div>' +
+          '<div class="dm-seats' + (full ? ' full' : '') + '"></div>';
+        row.querySelector('.dm-code').textContent = p.dataset.code;
+        row.querySelector('.dm-name').textContent = p.dataset.title || p.dataset.code;
+        row.querySelector('.dm-meta').textContent =
+          p.dataset.time + (p.dataset.loc ? ' · ' + p.dataset.loc : '');
+        row.querySelector('.dm-seats').textContent =
+          full ? 'Full' : (p.dataset.seats + ' left');
+        body.appendChild(row);
+      });
+    }
+    document.getElementById('dm-continue').href =
+      "{{ rp }}/reserve?start=" + encodeURIComponent(dayEl.dataset.date + " 09:00");
+    document.getElementById('daymodal').classList.add('show');
+  }
+  function closeDay(){ document.getElementById('daymodal').classList.remove('show'); }
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeDay(); });
 </script>
 </body>
 </html>

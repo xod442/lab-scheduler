@@ -180,7 +180,10 @@ def welcome(request: Request):
 
 
 @app.get("/schedule", response_class=HTMLResponse)
-def schedule(request: Request):
+def schedule(request: Request, mode: str = "join"):
+    # mode="join" (default): click a session pill to join it.
+    # mode="new":  click a day to preview what's scheduled, then sign up for a new workshop.
+    mode = "new" if mode == "new" else "join"
     api_key = get_api_key()
     error = ""
     cal = {"weeks": [], "session_count": 0, "range_label": ""}
@@ -202,7 +205,7 @@ def schedule(request: Request):
         request=request, name="schedule.html",
         context={"weeks": cal["weeks"], "session_count": cal["session_count"],
                  "range_label": cal["range_label"], "live": bool(api_key), "error": error,
-                 "catalog_groups": catalog_groups},
+                 "catalog_groups": catalog_groups, "mode": mode},
     )
 
 
