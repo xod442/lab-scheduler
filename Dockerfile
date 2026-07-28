@@ -2,7 +2,7 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY app.py vlab_client.py sample_items.json ./
+COPY app.py vlab_client.py sample_items.json course_catalog.json timezones.json ./
 COPY templates/ templates/
 COPY static/ static/
 EXPOSE 8000
