@@ -4,6 +4,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py vlab_client.py sample_items.json course_catalog.json timezones.json ./
 COPY templates/ templates/
-COPY static/ static/
+COPY assets/ assets/
 EXPOSE 8000
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -167,7 +167,7 @@ def set_admin_cookie(response, username: str):
 
 # ── App ────────────────────────────────────────────────────────────────────────
 app = FastAPI(title="Lab Scheduler", root_path=ROOT_PATH)
-app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
+app.mount("/assets", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "assets")), name="assets")
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 templates.env.globals["rp"] = ROOT_PATH
 templates.env.globals["admin_path"] = ADMIN_PATH
