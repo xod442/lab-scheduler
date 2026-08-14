@@ -236,7 +236,8 @@
         row.querySelector('.dm-code').textContent = p.dataset.code;
         row.querySelector('.dm-name').textContent = p.dataset.title || p.dataset.code;
         row.querySelector('.dm-meta').textContent =
-          p.dataset.time + (p.dataset.loc ? ' · ' + p.dataset.loc : '');
+          p.dataset.time + (p.dataset.loc ? ' · ' + p.dataset.loc : '') +
+          (MODE === 'join' && p.dataset.rid ? ' · ID: ' + p.dataset.rid : '');
         var right = row.querySelector('.dm-right');
         if (joinable){
           var seats = document.createElement('span'); seats.className = 'dm-seats';

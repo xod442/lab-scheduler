@@ -40,6 +40,7 @@
 
     <div class="detail">
       <div class="r"><span class="k">Course</span><span class="v">{{ payload.courseCode }}</span></div>
+      {% if payload.resId %}<div class="r"><span class="k">Reservation ID</span><span class="v">{{ payload.resId }}</span></div>{% endif %}
       <div class="r"><span class="k">Start</span><span class="v">{{ payload.startDateTime }}</span></div>
       <div class="r"><span class="k">End</span><span class="v">{{ payload.endDateTime }}</span></div>
       <div class="r"><span class="k">Time zone</span><span class="v">{{ payload.tz }}</span></div>
