@@ -23,9 +23,45 @@ SCHEDULER_CREATE_URL = os.getenv("SCHEDULER_CREATE_URL", "https://schedulerapi.e
 # the path; the body is FORM-encoded (matches single_seat.py: requests.post(url, data=...)).
 SCHEDULER_JOIN_URL = os.getenv("SCHEDULER_JOIN_URL", "https://schedulerapi.edutl.hpe.com/v1/reservations/{resId}/add-seat/")
 SCHEDULER_API_KEY = os.getenv("SCHEDULER_API_KEY", "")
+VLS_REQUEST_LOG_PATH = os.getenv("VLS_REQUEST_LOG_PATH", os.path.join(os.path.dirname(__file__), "data", "vls_requests.log"))
 
 _SAMPLE = pathlib.Path(__file__).parent / "sample_items.json"
 _CATALOG = pathlib.Path(__file__).parent / "course_catalog.json"
+
+
+def _redact_sensitive_headers(headers: dict | None) -> dict:
+    """Sanitize secret-bearing headers before writing them to disk."""
+    if not headers:
+        return {}
+    redacted = {}
+    for key, value in headers.items():
+        name = str(key)
+        if name.lower() in {"x-api-key", "authorization", "api-key", "token", "cookie"}:
+            redacted[name] = "[REDACTED]"
+        else:
+            redacted[name] = value
+    return redacted
+
+
+def _log_vls_request(method: str, url: str, payload: object | None, headers: dict | None = None) -> None:
+    """Append a single outbound request to a JSONL logfile for diagnostics."""
+    log_path = pathlib.Path(VLS_REQUEST_LOG_PATH)
+    if not str(log_path).strip():
+        return
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "method": method.upper(),
+            "url": url,
+            "headers": _redact_sensitive_headers(headers),
+            "payload": payload,
+        }
+        with log_path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, default=str, sort_keys=True) + "\n")
+    except Exception:
+        # Never fail the app because of the request log.
+        pass
 
 
 def load_catalog() -> list:
@@ -43,7 +79,9 @@ def fetch_items(api_key: str | None = None) -> dict:
     key = api_key if api_key is not None else SCHEDULER_API_KEY
     if not key:
         return json.loads(_SAMPLE.read_text())
-    resp = httpx.get(SCHEDULER_API_URL, headers={"X-API-KEY": key}, timeout=30)
+    headers = {"X-API-KEY": key}
+    _log_vls_request("GET", SCHEDULER_API_URL, None, headers)
+    resp = httpx.get(SCHEDULER_API_URL, headers=headers, timeout=30)
     resp.raise_for_status()
     return resp.json()
 
@@ -61,6 +99,7 @@ def create_reservation(payload: dict, api_key: str | None = None) -> dict:
                 "message": "Reservation created (simulated — no API key configured).",
                 "raw": {"submitted": payload}}
     headers = {"Content-Type": "application/json", "X-API-Key": key}
+    _log_vls_request("POST", SCHEDULER_CREATE_URL, payload, headers)
     try:
         resp = httpx.post(SCHEDULER_CREATE_URL, headers=headers, json=payload, timeout=30)
     except httpx.HTTPError as exc:
@@ -161,6 +200,7 @@ def join_reservation(res_id: str, data: dict, api_key: str | None = None) -> dic
         form = {k: str(v) for k, v in data.items()}
     else:
         form = {"resId": str(res_id), **{k: str(v) for k, v in data.items()}}
+    _log_vls_request("POST", url, form, headers)
     try:
         # Form-encoded (application/x-www-form-urlencoded), matching single_seat.py.
         resp = httpx.post(url, headers=headers, data=form, timeout=30)

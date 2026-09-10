@@ -128,6 +128,7 @@ All configuration is via environment variables (a `.env` file next to
 | `SCHEDULER_CREATE_URL` | HPE vLab create URL | New-reservation endpoint. |
 | `SCHEDULER_JOIN_URL` | HPE vLab add-seat URL | Join (add-seat) endpoint. |
 | `SCHEDULER_API_KEY` | *(empty)* | The scheduler `X-API-Key`. **Empty = simulated mode.** |
+| `VLS_REQUEST_LOG_PATH` | `data/vls_requests.log` | Optional JSONL logfile for outbound VLS request payloads. Secret headers are redacted before writing. |
 | `DEFAULT_TZ` | `America/New_York` | Default time zone on the new-workshop form. |
 | `OWN_DURATION_HOURS` | `8` | New sessions end this many hours after the chosen start. |
 | `DB_PATH` | `data/labportal.db` | SQLite location. |
