@@ -87,6 +87,14 @@
   </div>
 
   <div class="card">
+    <h2>VLS request log</h2>
+    <p class="hint">Outbound JSON payloads sent to the scheduler API, with secret headers redacted.</p>
+    <div class="row">
+      <a href="{{ rp }}{{ admin_path }}/vls-log"><button type="button">View VLS log</button></a>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Security</h2>
     <p class="hint">Change the admin password for this console.</p>
     <a href="{{ rp }}{{ admin_path }}/password"><button type="button" class="btn-sec">Change password</button></a>

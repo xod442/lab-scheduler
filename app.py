@@ -427,6 +427,25 @@ def admin_log(request: Request):
     )
 
 
+@app.get(ADMIN_PATH + "/vls-log", response_class=HTMLResponse)
+def admin_vls_log(request: Request):
+    if not get_admin(request):
+        return RedirectResponse(url=_admin_url("/login"), status_code=303)
+    log_path = vlab_client.VLS_REQUEST_LOG_PATH
+    try:
+        if os.path.exists(log_path):
+           with open(log_path, "r", encoding="utf-8") as fh:
+               lines = fh.read().splitlines()
+        else:
+           lines = ["No VLS request log file has been created yet."]
+    except OSError:
+        lines = ["Could not read the VLS request log file."]
+    return templates.TemplateResponse(
+        request=request, name="admin_vls_log.html",
+        context={"lines": lines, "log_path": log_path, "count": len(lines)},
+    )
+
+
 @app.get(ADMIN_PATH + "/log.csv")
 def admin_log_csv(request: Request):
     if not get_admin(request):
