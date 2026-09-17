@@ -40,6 +40,8 @@ The month calendar — click any day to see what's scheduled:
   error page.
 - **Self-hosted assets** — the date picker (flatpickr) is vendored locally, so the portal
   works on networks that block third-party CDNs.
+- **Downloadable student guide** — a print-ready PDF walkthrough of both flows, linked from
+  the welcome, calendar, and reserve pages (`assets/Lab_Scheduler_Student_Guide.pdf`).
 
 ---
 
@@ -83,6 +85,7 @@ static/                Logo + vendored flatpickr assets
 course_catalog.json    Course-code → title "decoder ring"
 sample_items.json      Bundled schedule used in simulated mode
 timezones.json         IANA time-zone choices for the new-workshop form
+docs/generate_user_guide.py  Regenerates the student PDF guide (needs `pip install reportlab`)
 data/                  SQLite DB + encryption key (created at runtime; persisted)
 Dockerfile
 docker-compose.yaml
