@@ -141,9 +141,15 @@ def build():
     story = []
 
     # Header
+    # The logo art (assets/hpelogo.png) is natively a wide, flat lockup
+    # (420x120, ~3.5:1). Sized by height rather than width keeps it in
+    # proportion with the text beside it instead of reading as a stretched
+    # banner across the page.
     logo = Image(os.path.join(ASSETS, "hpelogo.png"))
-    logo.drawWidth = 1.3 * inch
-    logo.drawHeight = 1.3 * inch * (logo.imageHeight / float(logo.imageWidth))
+    logo_ratio = logo.imageWidth / float(logo.imageHeight)
+    logo.drawHeight = 0.34 * inch
+    logo.drawWidth = 0.34 * inch * logo_ratio
+    logo.hAlign = "LEFT"
     story.append(logo)
     story.append(Spacer(1, 10))
     story.append(Paragraph(
@@ -207,6 +213,10 @@ def build():
 
     # Option A
     story.append(Paragraph("Option A — Join an Existing Workshop", h2))
+    story.append(screenshot(
+        os.path.join(IMG, "join-calendar.png"), 5.6 * inch,
+        "The join calendar — each tile is a scheduled workshop with its course "
+        "code, start time, and seats remaining."))
     story.append(numbered([
         "From the welcome page, click <b>Join a Workshop</b>.",
         "You'll see a calendar of upcoming sessions. Each colored tile is a scheduled "
@@ -256,9 +266,19 @@ def build():
         "<font face='Courier-Bold'>TE1-101.a</font> or "
         "<font face='Courier-Bold'>TE4-203.b</font>. The prefix (TE1, TE2, TE3…) "
         "groups related courses by curriculum family (for example, Campus "
-        "Networking, Aruba Central, Data Center Networking). On the calendar page, "
-        "open the <b>“Course code legend”</b> panel above the calendar to see "
-        "the full list of codes and what each one stands for.", body))
+        "Networking, Aruba Central, Data Center Networking).", body))
+    story.append(Spacer(1, 8))
+    story.append(callout([
+        "<b>Course code legend</b> — Not sure what a code stands for? Every "
+        "calendar page (Join and New) has a <b>“Course code legend”</b> panel "
+        "just above the calendar grid. Click it to expand the full list, "
+        "grouped by family, decoding every code to its full course title.",
+    ]))
+    story.append(Spacer(1, 10))
+    story.append(screenshot(
+        os.path.join(IMG, "course-code-legend.png"), 5.2 * inch,
+        "The expanded course code legend — grouped by family (TE1, TE2, TE3…), "
+        "with each code's full course title."))
 
     # Time zones
     story.append(Paragraph("Time zones &amp; session length", h2))
