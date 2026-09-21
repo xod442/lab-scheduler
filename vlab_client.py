@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import time
 from datetime import date, datetime, timedelta
 
 import httpx
@@ -43,19 +44,69 @@ def _redact_sensitive_headers(headers: dict | None) -> dict:
     return redacted
 
 
-def _log_vls_request(method: str, url: str, payload: object | None, headers: dict | None = None) -> None:
-    """Append a single outbound request to a JSONL logfile for diagnostics."""
+_LOG_BODY_MAX_CHARS = 4000
+
+
+def _truncate_for_log(body: object) -> object:
+    """Cap how much of a request/response body we persist to the logfile.
+
+    Large GET /items responses (dozens of sessions) would otherwise bloat the
+    log quickly since it's appended to on every calendar view. Small dicts
+    (create/join payloads and their responses) pass through untouched.
+    """
+    if body is None:
+        return None
+    text = json.dumps(body, default=str)
+    if len(text) <= _LOG_BODY_MAX_CHARS:
+        return body
+    return {
+        "truncated": True,
+        "original_length": len(text),
+        "preview": text[:_LOG_BODY_MAX_CHARS] + "…",
+    }
+
+
+def _log_vls_call(
+    method: str,
+    url: str,
+    request_payload: object | None,
+    headers: dict | None = None,
+    *,
+    action: str | None = None,
+    response: "httpx.Response | None" = None,
+    error: Exception | None = None,
+    elapsed_ms: float | None = None,
+) -> None:
+    """Append one outbound VLS API call — request AND response together — to a
+    JSONL logfile for diagnostics. One line per call, never raises."""
     log_path = pathlib.Path(VLS_REQUEST_LOG_PATH)
     if not str(log_path).strip():
         return
     try:
+        response_entry = None
+        if response is not None:
+            try:
+                body = response.json()
+            except ValueError:
+                body = {"raw_text": response.text}
+            response_entry = {
+                "status_code": response.status_code,
+                "ok": response.is_success,
+                "body": _truncate_for_log(body),
+            }
         log_path.parent.mkdir(parents=True, exist_ok=True)
         entry = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
+            "action": action,
             "method": method.upper(),
             "url": url,
-            "headers": _redact_sensitive_headers(headers),
-            "payload": payload,
+            "elapsed_ms": round(elapsed_ms, 1) if elapsed_ms is not None else None,
+            "request": {
+                "headers": _redact_sensitive_headers(headers),
+                "payload": _truncate_for_log(request_payload),
+            },
+            "response": response_entry,
+            "error": f"{type(error).__name__}: {error}" if error else None,
         }
         with log_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry, default=str, sort_keys=True) + "\n")
@@ -80,8 +131,15 @@ def fetch_items(api_key: str | None = None) -> dict:
     if not key:
         return json.loads(_SAMPLE.read_text())
     headers = {"X-API-KEY": key}
-    _log_vls_request("GET", SCHEDULER_API_URL, None, headers)
-    resp = httpx.get(SCHEDULER_API_URL, headers=headers, timeout=30)
+    start = time.perf_counter()
+    try:
+        resp = httpx.get(SCHEDULER_API_URL, headers=headers, timeout=30)
+    except httpx.HTTPError as exc:
+        _log_vls_call("GET", SCHEDULER_API_URL, None, headers, action="items",
+                       error=exc, elapsed_ms=(time.perf_counter() - start) * 1000)
+        raise
+    _log_vls_call("GET", SCHEDULER_API_URL, None, headers, action="items",
+                   response=resp, elapsed_ms=(time.perf_counter() - start) * 1000)
     resp.raise_for_status()
     return resp.json()
 
@@ -99,12 +157,16 @@ def create_reservation(payload: dict, api_key: str | None = None) -> dict:
                 "message": "Reservation created (simulated — no API key configured).",
                 "raw": {"submitted": payload}}
     headers = {"Content-Type": "application/json", "X-API-Key": key}
-    _log_vls_request("POST", SCHEDULER_CREATE_URL, payload, headers)
+    start = time.perf_counter()
     try:
         resp = httpx.post(SCHEDULER_CREATE_URL, headers=headers, json=payload, timeout=30)
     except httpx.HTTPError as exc:
+        _log_vls_call("POST", SCHEDULER_CREATE_URL, payload, headers, action="create",
+                       error=exc, elapsed_ms=(time.perf_counter() - start) * 1000)
         return {"ok": False, "simulated": False, "status_code": 0,
                 "message": f"Could not reach the scheduler ({type(exc).__name__}).", "raw": {}}
+    _log_vls_call("POST", SCHEDULER_CREATE_URL, payload, headers, action="create",
+                   response=resp, elapsed_ms=(time.perf_counter() - start) * 1000)
     try:
         body = resp.json()
     except ValueError:
@@ -200,13 +262,17 @@ def join_reservation(res_id: str, data: dict, api_key: str | None = None) -> dic
         form = {k: str(v) for k, v in data.items()}
     else:
         form = {"resId": str(res_id), **{k: str(v) for k, v in data.items()}}
-    _log_vls_request("POST", url, form, headers)
+    start = time.perf_counter()
     try:
         # Form-encoded (application/x-www-form-urlencoded), matching single_seat.py.
         resp = httpx.post(url, headers=headers, data=form, timeout=30)
     except httpx.HTTPError as exc:
+        _log_vls_call("POST", url, form, headers, action="join",
+                       error=exc, elapsed_ms=(time.perf_counter() - start) * 1000)
         return {"ok": False, "simulated": False, "status_code": 0,
                 "message": f"Could not reach the scheduler ({type(exc).__name__}).", "raw": {}}
+    _log_vls_call("POST", url, form, headers, action="join",
+                   response=resp, elapsed_ms=(time.perf_counter() - start) * 1000)
     try:
         b = resp.json()
     except ValueError:

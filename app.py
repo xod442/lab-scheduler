@@ -171,6 +171,7 @@ app.mount("/assets", StaticFiles(directory=os.path.join(os.path.dirname(__file__
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 templates.env.globals["rp"] = ROOT_PATH
 templates.env.globals["admin_path"] = ADMIN_PATH
+templates.env.filters["pretty_json"] = lambda v: json.dumps(v, indent=2, sort_keys=True, default=str) if v is not None else ""
 
 
 # ---- Public ----
@@ -432,17 +433,49 @@ def admin_vls_log(request: Request):
     if not get_admin(request):
         return RedirectResponse(url=_admin_url("/login"), status_code=303)
     log_path = vlab_client.VLS_REQUEST_LOG_PATH
+    error = None
+    raw_lines: list[str] = []
     try:
         if os.path.exists(log_path):
-           with open(log_path, "r", encoding="utf-8") as fh:
-               lines = fh.read().splitlines()
+            with open(log_path, "r", encoding="utf-8") as fh:
+                raw_lines = [ln for ln in fh.read().splitlines() if ln.strip()]
         else:
-           lines = ["No VLS request log file has been created yet."]
+            error = "No VLS request log file has been created yet."
     except OSError:
-        lines = ["Could not read the VLS request log file."]
+        error = "Could not read the VLS request log file."
+
+    total = len(raw_lines)
+    SHOWN_LIMIT = 300
+    shown_lines = raw_lines[-SHOWN_LIMIT:]
+
+    entries = []
+    for line in reversed(shown_lines):  # newest first
+        try:
+            data = json.loads(line)
+        except ValueError:
+            entries.append({"parse_error": True, "raw": line})
+            continue
+        # Normalize legacy entries (flat "headers"/"payload", no "request"/"response").
+        if "request" not in data:
+            data = {
+                "timestamp": data.get("timestamp"),
+                "action": data.get("action"),
+                "method": data.get("method"),
+                "url": data.get("url"),
+                "elapsed_ms": data.get("elapsed_ms"),
+                "request": {"headers": data.get("headers", {}), "payload": data.get("payload")},
+                "response": None,
+                "error": data.get("error"),
+            }
+        data["parse_error"] = False
+        entries.append(data)
+
     return templates.TemplateResponse(
         request=request, name="admin_vls_log.html",
-        context={"lines": lines, "log_path": log_path, "count": len(lines)},
+        context={
+            "entries": entries, "shown": len(entries), "total": total,
+            "log_path": log_path, "error": error,
+        },
     )
 
 
